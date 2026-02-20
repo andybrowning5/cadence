@@ -1,0 +1,38 @@
+name: "cadence"
+display_name: "Cadence - Task Prioritization Agent"
+version: "0.2.0"
+description: "AI-powered task prioritization agent. Tell Gus your tasks and deadlines, and it suggests an optimal order. Remembers your tasks across sessions using local filesystem memory."
+category: "productivity"
+tags: ["tasks", "productivity", "prioritization", "memory"]
+
+author:
+  name: "Andy Browning"
+  github: "andybrowning5"
+
+runtime:
+  language: "python"
+  setup_command: "pip install ."
+  run_command: "python -u src/agentstore_adapter.py"
+  dependencies: "pyproject.toml"
+  default_model:
+    provider: "anthropic"
+    model: "claude-sonnet-4-5-20250929"
+  resources:
+    max_memory: "2GB"
+    max_cpu: 2
+
+keys:
+  - provider: anthropic
+    env_var: ANTHROPIC_API_KEY
+    required: true
+
+permissions:
+  network:
+    - domain: "api.anthropic.com"
+      reason: "LLM API access"
+    - domain: "api.openai.com"
+      reason: "LLM API access (fallback)"
+  filesystem:
+    workspace: "readwrite"
+  delegation:
+    enabled: false

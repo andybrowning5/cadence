@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+GusWidget/DerivedData/
+GusWidget/*.xcuserstate
+GusWidget/xcuserdata/
