@@ -37,4 +37,4 @@ permissions:
   filesystem:
     workspace: "readwrite"
   delegation:
-    enabled: false
+    enabled: true
