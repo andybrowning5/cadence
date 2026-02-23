@@ -1,6 +1,7 @@
 """Cadence: Task Prioritization Agent factory.
 
-Creates the agent using LangChain Deep Agents framework.
+Creates the agent using LangChain Agents with only custom tools (no built-in
+deep agent tools like task, grep, glob, filesystem, or todo).
 """
 
 import json
@@ -8,12 +9,14 @@ import os
 import sys
 from typing import Any
 
-from deepagents import create_deep_agent
 from dotenv import load_dotenv
+from deepagents.graph import AnthropicPromptCachingMiddleware
+from deepagents.middleware.patch_tool_calls import PatchToolCallsMiddleware
+from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
 
-from .backends import get_checkpointer, get_store, make_backend
+from .backends import get_checkpointer
 from .prompts import get_prioritizer_prompt
 from .memory import get_context, init_memory, remember, save_turn
 
@@ -132,28 +135,35 @@ def stop_agent(session_id: str) -> str:
 def create_cadence_agent(model_name: str | None = None) -> Any:
     """Create the Cadence task prioritization agent.
 
+    Uses create_agent (not create_deep_agent) so the agent only has the
+    custom tools we explicitly provide — no built-in deep agent tools
+    (task, grep, glob, ls, read_file, write_file, edit_file, execute, write_todos).
+
     Args:
         model_name: Optional model identifier.
 
     Returns:
-        Configured deep agent instance.
+        Configured agent instance.
     """
     model = get_model(model_name)
-    store = get_store()
     checkpointer = get_checkpointer()
 
     tools = [remember, search_agents, start_agent, message_agent, stop_agent]
 
-    agent = create_deep_agent(
+    middleware = [
+        AnthropicPromptCachingMiddleware(unsupported_model_behavior="ignore"),
+        PatchToolCallsMiddleware(),
+    ]
+
+    agent = create_agent(
         model=model,
         tools=tools,
         system_prompt=get_prioritizer_prompt(),
-        store=store,
+        middleware=middleware,
         checkpointer=checkpointer,
-        backend=make_backend,
     )
 
-    return agent
+    return agent.with_config({"recursion_limit": 1000})
 
 
 def run_cadence(
