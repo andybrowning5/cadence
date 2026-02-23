@@ -1,5 +1,5 @@
 __version__ = "0.1.0"
 
-from .agent import create_gus_agent, run_gus
+from .agent import create_cadence_agent, run_cadence
 
-__all__ = ["create_gus_agent", "run_gus", "__version__"]
+__all__ = ["create_cadence_agent", "run_cadence", "__version__"]
