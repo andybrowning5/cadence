@@ -3,12 +3,15 @@
 Creates the agent using LangChain Deep Agents framework.
 """
 
+import json
 import os
+import sys
 from typing import Any
 
 from deepagents import create_deep_agent
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
+from langchain_core.tools import tool
 
 from .backends import get_checkpointer, get_store, make_backend
 from .prompts import get_prioritizer_prompt
@@ -39,6 +42,93 @@ def get_model(model_name: str | None = None) -> Any:
         )
 
 
+def _emit(msg: dict) -> None:
+    """Emit a Primordial Protocol event to stdout."""
+    sys.stdout.write(json.dumps(msg) + "\n")
+    sys.stdout.flush()
+
+
+# ---------------------------------------------------------------------------
+# Delegation tools (powered by primordial_delegate SDK)
+# ---------------------------------------------------------------------------
+
+@tool
+def search_agents(query: str) -> str:
+    """Search for agents on the Primordial AgentStore by capability.
+
+    Args:
+        query: Natural language description of what you need
+            (e.g., "web research", "code review").
+    """
+    from .primordial_delegate import search
+    return json.dumps(search(query))
+
+
+@tool
+def start_agent(agent_url: str) -> str:
+    """Spawn a sub-agent for multi-turn conversation.
+
+    Returns a session_id to use with message_agent.
+
+    Args:
+        agent_url: GitHub URL of the agent to run.
+    """
+    from .primordial_delegate import run_agent
+
+    def _on_status(event):
+        _emit({
+            "type": "activity",
+            "tool": "sub:setup",
+            "description": event.get("status", ""),
+        })
+
+    return run_agent(agent_url, on_status=_on_status)
+
+
+@tool
+def message_agent(session_id: str, message: str) -> str:
+    """Send a message to a running sub-agent and get its response.
+
+    Args:
+        session_id: Session ID from start_agent.
+        message: The message to send.
+    """
+    from .primordial_delegate import message_agent as _msg
+
+    def _on_activity(tool_name, desc):
+        args_desc = desc
+        if desc.startswith(f"{tool_name}(") and desc.endswith(")"):
+            args_desc = desc[len(tool_name) + 1:-1]
+        _emit({
+            "type": "activity",
+            "tool": f"sub:{tool_name}",
+            "description": args_desc,
+        })
+
+    result = _msg(session_id, message, on_activity=_on_activity)
+
+    # Emit a preview of the response
+    response = result.get("response", "")
+    preview = response.replace("\n", " ")[:150].strip()
+    if len(response) > 150:
+        preview += "..."
+    _emit({"type": "activity", "tool": "sub:response", "description": preview})
+
+    return json.dumps(result)
+
+
+@tool
+def stop_agent(session_id: str) -> str:
+    """Shut down a sub-agent session.
+
+    Args:
+        session_id: Session ID from start_agent.
+    """
+    from .primordial_delegate import stop_agent as _stop
+    _stop(session_id)
+    return "Agent stopped."
+
+
 def create_cadence_agent(model_name: str | None = None) -> Any:
     """Create the Cadence task prioritization agent.
 
@@ -52,7 +142,7 @@ def create_cadence_agent(model_name: str | None = None) -> Any:
     store = get_store()
     checkpointer = get_checkpointer()
 
-    tools = [remember]
+    tools = [remember, search_agents, start_agent, message_agent, stop_agent]
 
     agent = create_deep_agent(
         model=model,
