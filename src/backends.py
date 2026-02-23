@@ -6,7 +6,8 @@ Long-term memory persists via Zep Cloud.
 
 from typing import Any
 
-from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+from deepagents.backends import CompositeBackend, StoreBackend
+from deepagents.backends.filesystem import FilesystemBackend
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 
@@ -24,7 +25,7 @@ def get_checkpointer() -> MemorySaver:
 def make_backend(runtime: Any) -> CompositeBackend:
     """Create a CompositeBackend with persistent /memories/ route."""
     return CompositeBackend(
-        default=StateBackend(runtime),
+        default=FilesystemBackend(),
         routes={
             "/memories/": StoreBackend(runtime),
         },
