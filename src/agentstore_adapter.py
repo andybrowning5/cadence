@@ -74,7 +74,7 @@ def _extract_response(result: dict[str, Any]) -> str:
     return ""
 
 
-__emitted_tool_calls: set[str] = set()
+_emitted_tool_calls: set[str] = set()
 
 
 def handle_message(
