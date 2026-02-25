@@ -74,6 +74,9 @@ def _extract_response(result: dict[str, Any]) -> str:
     return ""
 
 
+__emitted_tool_calls: set[str] = set()
+
+
 def handle_message(
     agent: Any,
     config: dict,
@@ -98,9 +101,8 @@ def handle_message(
 
         messages: list[dict[str, str]] = [{"role": "user", "content": user_content}]
         final_response = ""
-        # Track emitted tool calls to avoid duplicates (stream_mode="values"
-        # replays the full message list on each event)
-        emitted_tool_calls: set[str] = set()
+        # Use module-level set to deduplicate across turns (stream_mode="values"
+        # replays the full message history on each event)
 
         if hasattr(agent, "stream"):
             for event in agent.stream(
@@ -120,9 +122,9 @@ def handle_message(
                     ):
                         for tc in msg.tool_calls:
                             tc_id = tc.get("id") or tc.get("name", "")
-                            if tc_id in emitted_tool_calls:
+                            if tc_id in _emitted_tool_calls:
                                 continue
-                            emitted_tool_calls.add(tc_id)
+                            _emitted_tool_calls.add(tc_id)
                             tool_name = tc.get("name", "unknown")
                             tool_args = tc.get("args", {})
                             query = tool_args.get("query") or tool_args.get("topic") or ""
